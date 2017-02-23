@@ -1,0 +1,63 @@
+#!/usr/bin/env/python2.7
+#-*- coding: utf-8 -*-
+
+#   PC/NPC Generation Script
+#   Using ../player/*, generate a player
+#   Menu-Driven, optionally run as a
+#   command-line script with options to
+#   create PC/NPC templates
+
+# stdlib modules
+import curses
+
+# package
+from util.menu import Menu, MenuItem, AttributeSelection
+
+# extended
+from pokeyworks import color_wrap, Color
+
+class CharCreate(object):
+
+    def __init__(self, stdscreen, player):
+        self.screen = stdscreen
+        self.curses_init()
+        self.player = player
+
+        self.menu_items=(
+                MenuItem('Select Class',self.class_select,0),
+                MenuItem('Set Attributes',self.attr_select,1)
+                )
+
+        self.populate_menu()
+        self.main_menu.display()
+
+    def curses_init(self):
+        curses.curs_set(0)
+        curses.start_color()
+        curses.use_default_colors()
+        self.set_colors()
+
+    def set_colors(self):
+        curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLUE)
+        curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_BLUE)
+        curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_RED)
+
+    def class_select(self):
+        pass
+
+    def attr_select(self):
+        menu = AttributeSelection(self.screen, self)
+        menu.post_init(self.player)
+        menu.display()
+
+    def populate_menu(self):
+        item_list = []
+        for item in self.menu_items:
+            item_list.append(item)
+        self.main_menu = Menu(self.screen, self)
+        self.main_menu.post_init(item_list)
+
+def character_creation(player):
+    curses.wrapper(CharCreate, player)
