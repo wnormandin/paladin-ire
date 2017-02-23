@@ -1,7 +1,11 @@
 import curses
+import json
 from curses import panel
+import random
 
 from player.attributes import ATTRIBUTE_DESCRIPTIONS as attr_desc
+from player.core import RandomRoll as roll
+from player.core import NAME_LIST
 
 class Menu(object):
 
@@ -16,17 +20,23 @@ class Menu(object):
         self.maxy,self.maxx = self.window.getmaxyx()
         self.app = app
         self.dbg_msg_list = []
-        self.current_msg = None
+        self.current_msg = ''
         self.first_pass = True
         self.over = None
+
+    def menu_bar(self,val_list=['S: Save','Q: Quit']):
+        if val_list:
+            menu = ' | '.join(val_list)
+            self._pre_draw(1,2)
+            self.window.addstr(1,2,menu,curses.color_pair(3))
 
     def msg_bar(self,msg=' '):
         yval,xval = self.window.getmaxyx()
         col = self.hlt_msg
         self.window.addstr(
             yval-2,
-            self.margin,
-            self.current_msg.ljust(xval-2, ' '),
+            2,
+            self.current_msg.ljust(xval-2),
             col
             )
 
@@ -58,7 +68,7 @@ class Menu(object):
         self.err_msg = curses.color_pair(2)
         self.hlt_msg = curses.color_pair(3)
 
-        self.margin = 2
+        self.margin = 3
 
     def capture(self,y,x,length):
         curses.echo()
@@ -156,7 +166,16 @@ class AttributeSelection(Menu):
         attr_sum = 0
         for attr in self.player.attributes[0]:
             attr_sum += int(getattr(self.player, attr))
-        return ((self.player.level * 7) + 10) - attr_sum
+        return ((self.player.level * 10) + 7) - attr_sum
+
+    def attr_init(self):
+        # rolls initial player attributes
+        rr = roll(self.player, 5)
+        while True:
+            for a in self.player.attributes[0]:
+                setattr(self.player, a, rr.roll(None))
+            if self.free_attr == 5: break
+        self.refresh_attributes()
 
     def post_init(self, player):
         self.player = player
@@ -166,7 +185,7 @@ class AttributeSelection(Menu):
     def refresh_attributes(self):
         attrs, _ = self.player.attributes
         self.items = [(attr, getattr(self.player,attr)) for attr in attrs]
-        self.items.append(('Done',''))
+        self.items.extend([('Re-roll',''),('Done','')])
 
     def side_panel(self, h, l, y, x):
         win = curses.newwin(h,l,y,x)
@@ -195,15 +214,18 @@ class AttributeSelection(Menu):
         self.side_win.clear()
         self.side_win.box()
 
-    def draw_sidewin(self,title,msg='test'):
+    def draw_sidewin(self,title,msg):
         self._pre_draw(2,2)
-        self.side_win.addstr(2,self.margin+1,title, curses.A_BOLD | curses.color_pair(333))
+        self.side_win.addstr(2,self.margin+1,title, curses.A_BOLD | curses.color_pair(3))
         i = self.margin+1
-        for j in range(self.side_win.getmaxyx()[0]):
-            self._pre_draw(j,2)
+        self.clear_sidewin()
         for line in msg.split('\n'):
             self.side_win.addstr(i,self.margin+1,line)
             i += 1
+
+    def clear_sidewin(self):
+        for j in range(self.side_win.getmaxyx()[0]):
+            self._pre_draw(j,2)
 
     def _loop_start(self):
         self.window.refresh()
@@ -213,18 +235,19 @@ class AttributeSelection(Menu):
         curses.doupdate()
 
     def main_loop(self):
-        self.position=6
+        self.position=8
         while True:
             # Loop init, refresh windows and print menus
             self._loop_start()
             self.print_item_list()
             self.print_resist_list()
+            self.menu_bar()
 
             if not self.first_pass:
                 if not self.process_selection(self.window.getch()):
                     break
             else:
-                self.current_msg = 'Press ENTER to return to the previous menu'
+                self.attr_init()
 
             self.first_pass = False
 
@@ -236,6 +259,13 @@ class AttributeSelection(Menu):
             if self.position == len(self.items)-1:
                 self.over=None
                 return False
+            elif self.position == len(self.items)-2:
+                self.over = 're-roll'
+                self.attr_init()
+                self.print_item_list()
+                self.current_msg = 'Attributes re-rolled'
+                self.msg_bar()
+                return True
             else:
                 if self.free_attr > 0:
                     self.incr_attr()
@@ -250,12 +280,25 @@ class AttributeSelection(Menu):
         elif key == curses.KEY_DOWN:
             self.navigate(1)
 
-        if self.position != len(self.items)-1:
+        elif key in [ord('S'),ord('s')]:
+            self.save_entity()
+            return True
+
+        elif key in [ord('Q'),ord('q')]:
+            self.over=None
+            return False
+
+        if self.position < len(self.items)-2:
             self.over = self.player.attributes[0][self.position]
             self.attribute_info()
             self.current_msg = 'Hit ENTER to increase this attribute'
+        elif self.position == len(self.items)-2:
+            self.clear_sidewin()
+            self.over = 're-roll'
+            self.current_msg = 'Hit ENTER to re-roll attributes'
         else:
-            self.over = None
+            self.clear_sidewin()
+            self.over = 'done'
             self.current_msg = 'Hit ENTER to return to the previous menu'
 
         return True
@@ -272,8 +315,37 @@ class AttributeSelection(Menu):
                 self.msg_bar()
         self.refresh_attributes()
 
+    @property
+    def getfilename(self):
+        return random.choice(NAME_LIST)
+
+    def save_entity(self):
+        default = self.getfilename
+        self.current_msg = 'Input a file name (Blank={}, 15 chars max): '.format(default)
+        self.msg_bar()
+        msg_len = len(self.current_msg)
+        entry=self.capture(self.maxy-2,msg_len+1,15)
+        if not entry:
+            entry = default
+        fname='./entities/{}'.format(entry)
+        self.current_msg = 'Save entity "{}"? (Y/n): '.format(fname)
+        self.msg_bar()
+        key = self.window.getch()
+        if key in [ord('Y'),ord('y')]:
+            attrs = self.player.attributes[0]
+            with open(fname, 'w+') as outf:
+                json.dump(
+                        {attr:getattr(self.player,attr) for attr in attrs},
+                        outf
+                        )
+            self.current_msg = '{} saved!'.format(fname)
+            self.attr_init()
+        else:
+            self.current_msg = 'Entity save aborted!'
+            self.msg_bar
+
     def print_item_list(self):
-        self.window.addstr(2,2,'Attributes ({})'.format(self.free_attr),
+        self.window.addstr(self.margin,2,'Attributes ({})'.format(self.free_attr),
                                            self.info_msg | curses.A_BOLD)
         for idx, item in enumerate(self.items):
             attr, val = item
@@ -286,15 +358,15 @@ class AttributeSelection(Menu):
             self.window.addstr(self.margin+idx+1,17,str(val).rjust(2),mode)
 
     def print_resist_list(self):
-        self.window.addstr(11,2,'Resists',self.info_msg | curses.A_BOLD)
+        self.window.addstr(self.margin+11,2,'Resists',self.info_msg | curses.A_BOLD)
         for i,resist in enumerate(self.player.resists[0]):
             self.window.addstr(
-                    12+i,2,
+                    self.margin+12+i,2,
                     resist,
                     curses.color_pair(1)
                     )
             self.window.addstr(
-                    12+i,17,
+                    self.margin+12+i,17,
                     str(getattr(self.player,resist)).rjust(2),
                     curses.color_pair(1)
                     )
