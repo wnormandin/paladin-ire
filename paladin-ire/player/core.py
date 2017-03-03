@@ -20,11 +20,8 @@ class RandomRoll(object):
         # Calculates skill checks
         if skill is not None:
             chk_mod = getattr(self.player,skill)
-            return (chk_mod / self.skill_max_val()) + 1.
-        return 1.
-
-    def skill_max_val(self):
-        return float((self.player.level * 10) + 7)
+            return (chk_mod / self.player.attr_limit) + 1.
+        return 2.
 
     @property
     def possibles(self):
@@ -40,9 +37,12 @@ class RandomRoll(object):
     def attr_roll(self,attr):
         return self._calc_adv(attr)
 
-    def roll(self,check):
-        self.max_val = self.calc_bound(self.ub, self.attr_roll(check))
-        self.min_val = self.calc_bound(self.lb, self.attr_roll('luck'))
+    def roll(self,check,init=False):
+        self.max_val = self.calc_bound(self.ub, max(2.,self.attr_roll(check)))
+        if not init:
+            self.min_val = self.calc_bound(self.lb, self.attr_roll('luck'))
+        else:
+            self.min_val = 1
         return self.execute()
 
     def resist_roll(self,resist):
@@ -70,6 +70,23 @@ class Entity(object):
     attributes = ["health","attack","defense","focus","strength","wisdom","luck"], 1
     resists = ["fire","frost","death","detection"], 0
     status_effects = ["blind","paralyzed","invincible","fast"], 0
+    player_stats = {
+                    'hitpoints':(['health','health','defense'],False),
+                    'magic':(['wisdom','wisdom','focus'],False),
+                    'evade':(['defense','focus'],False),
+                    'carry':(['strength','strength','health'],False),
+                    'dodge':(['defense'],True),
+                    'sneak':(['focus'],True),
+                    'kick':(['strength'],True),
+                    'bash':(['strength'],True),
+                    'alteration':(['wisdom'],True),
+                    'destruction':(['wisdom'],True),
+                    'conjuration':(['wisdom'],True),
+                    'block':(['strength'],True),
+                    'backstab':(['focus'],True),
+                    'max_damage':(['strength','attack','luck'],True)
+                   }
+    core_stats = ['carry','hitpoints','magic','evade','max_damage']
 
     attr_desc = {
                  'health':'Contributes to\nplayer hit points',
@@ -83,15 +100,70 @@ class Entity(object):
 
     def __init__(self):
         self.alive = True
-        self.__attr_init()
+        self._attr_init()
         self.level = 1
+        self.player_class = None
+        self.init_complete = False
+        self.damage = 0
+        self.spells = False
+        self.sneaks = False
+        self._skills_enabled = None
 
-    def __attr_init(self):
+    def _attr_init(self):
         attrs = self.attributes, self.resists, self.status_effects
         for group in attrs:
             items, default = group
             for item in items:
                 setattr(self, item, default)
+
+    def get_stat(self,stat):
+        # Calculate the stat specified
+        if stat not in self._skills_enabled:
+            return 1
+
+        calc_stat, lvl_based = self.player_stats[stat]
+        stat_val = sum([getattr(self,s) for s in calc_stat])
+        if not lvl_based:
+            return int((stat_val / float(self.attr_limit))*10 + stat_val)
+        else:
+            return self.level + stat_val
+
+    @property
+    def _skills_enabled(self):
+        base = self.core_stats
+        base.extend(self.player_class.class_skills)
+        for sk in ['sneaks','spells']:
+            if getattr(self,sk):
+                base.append(sk)
+        return base
+
+    @_skills_enabled.setter
+    def _skills_enabled(self,skill=None):
+        cls = self.player_class
+        if cls is None:
+            return
+        if skill is None:
+            if cls.spell_book_enable and not self.spells:
+                self.spells = True
+            if cls.sneak_enable and not self.sneaks:
+                self.sneaks = True
+        else:
+            setattr(self, skill, True)
+
+    @property
+    def attr_sum(self):
+        # Calculate the entity's currently used attribute points
+        return sum([getattr(self,a) for a in self.attributes[0]])
+
+    @property
+    def attr_limit(self):
+        # Calculate the entity attribute point limit
+        return (self.level * 10) + 15
+
+    @property
+    def free_attr(self):
+        # Return the number of attribute points not assigned
+        return self.attr_limit - self.attr_sum
 
     def pre_turn(self):
         """ Pre-Turn hook, status effects decremented """

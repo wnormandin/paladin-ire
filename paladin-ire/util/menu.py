@@ -6,6 +6,8 @@ import random
 from player.attributes import ATTRIBUTE_DESCRIPTIONS as attr_desc
 from player.core import RandomRoll as roll
 from player.core import NAME_LIST
+from player.classes import CLASSES
+import player.classes
 
 class Menu(object):
 
@@ -39,6 +41,28 @@ class Menu(object):
             self.current_msg.ljust(xval-2),
             col
             )
+
+    def draw_sidewin(self,title,msg):
+        self._pre_draw(2,2)
+        self.side_win.addstr(2,self.margin+1,title,
+                curses.A_BOLD | curses.color_pair(3)
+                )
+        i = self.margin+1
+        self.clear_sidewin()
+        for line in msg.split('\n'):
+            self.side_win.addstr(i,self.margin+1,line)
+            i += 1
+
+    def clear_sidewin(self):
+        for j in range(self.side_win.getmaxyx()[0]):
+            self._pre_draw(j,2)
+
+    def side_panel(self, h, l, y, x):
+        win = curses.newwin(h,l,y,x)
+        win.erase()
+        win.box()
+        panel = curses.panel.new_panel(win)
+        return win, panel
 
     def _pre_draw(self,yv,xv):
         self.window.move(yv,xv)
@@ -161,20 +185,32 @@ class AttributeSelection(Menu):
     EDIT = 2    # Attribute edit mode
     TEST = 3    # Unused at this time
 
-    @property
-    def free_attr(self):
-        attr_sum = 0
-        for attr in self.player.attributes[0]:
-            attr_sum += int(getattr(self.player, attr))
-        return ((self.player.level * 10) + 7) - attr_sum
-
     def attr_init(self):
         # rolls initial player attributes
-        rr = roll(self.player, 5)
+        rr = roll(self.player, 7)
+        attr_list = self.player.attributes[0]
+
+        # Seed initial stats
         while True:
-            for a in self.player.attributes[0]:
-                setattr(self.player, a, rr.roll(None))
-            if self.free_attr == 5: break
+            for a in attr_list:
+                result = rr.roll(None)
+                setattr(self.player,a, result)
+            if self.player.free_attr < 16 and self.player.free_attr > 10:
+                break
+
+        # Distribute remainder based on class
+        cls = self.player.player_class
+        preferred = [attr for attr in cls.preferred_attr]
+        preferred.append('health')
+        while self.player.free_attr > 5:
+            a = random.choice(attr_list)
+            if a in preferred:
+                setattr(self.player, a, getattr(self.player, a)+1)
+
+        # Set resists
+        for resist in cls.resists:
+            setattr(self.player,resist,cls.resists[resist])
+
         self.refresh_attributes()
 
     def post_init(self, player):
@@ -186,13 +222,6 @@ class AttributeSelection(Menu):
         attrs, _ = self.player.attributes
         self.items = [(attr, getattr(self.player,attr)) for attr in attrs]
         self.items.extend([('Re-roll',''),('Done','')])
-
-    def side_panel(self, h, l, y, x):
-        win = curses.newwin(h,l,y,x)
-        win.erase()
-        win.box()
-        panel = curses.panel.new_panel(win)
-        return win, panel
 
     def _post_loop(self):
         self.window.clear()
@@ -214,18 +243,6 @@ class AttributeSelection(Menu):
         self.side_win.clear()
         self.side_win.box()
 
-    def draw_sidewin(self,title,msg):
-        self._pre_draw(2,2)
-        self.side_win.addstr(2,self.margin+1,title, curses.A_BOLD | curses.color_pair(3))
-        i = self.margin+1
-        self.clear_sidewin()
-        for line in msg.split('\n'):
-            self.side_win.addstr(i,self.margin+1,line)
-            i += 1
-
-    def clear_sidewin(self):
-        for j in range(self.side_win.getmaxyx()[0]):
-            self._pre_draw(j,2)
 
     def _loop_start(self):
         self.window.refresh()
@@ -235,12 +252,18 @@ class AttributeSelection(Menu):
         curses.doupdate()
 
     def main_loop(self):
+        assert self.player.player_class is not None
         self.position=8
         while True:
             # Loop init, refresh windows and print menus
             self._loop_start()
+            # Print menu items
             self.print_item_list()
+            # Print resist values
             self.print_resist_list()
+            # Calculate and print player stats
+            self.print_player_stats()
+            # Print the menu bar (Save/Quit)
             self.menu_bar()
 
             if not self.first_pass:
@@ -261,13 +284,14 @@ class AttributeSelection(Menu):
                 return False
             elif self.position == len(self.items)-2:
                 self.over = 're-roll'
+                self.player._attr_init()
                 self.attr_init()
                 self.print_item_list()
                 self.current_msg = 'Attributes re-rolled'
                 self.msg_bar()
                 return True
             else:
-                if self.free_attr > 0:
+                if self.player.free_attr > 0:
                     self.incr_attr()
                 else:
                     self.current_msg = 'No remaining attribute points'
@@ -345,8 +369,10 @@ class AttributeSelection(Menu):
             self.msg_bar
 
     def print_item_list(self):
-        self.window.addstr(self.margin,2,'Attributes ({})'.format(self.free_attr),
-                                           self.info_msg | curses.A_BOLD)
+        self.window.addstr(self.margin,2,'Attributes ({})'.format(
+                                            self.player.free_attr),
+                                            self.info_msg | curses.A_BOLD
+                                            )
         for idx, item in enumerate(self.items):
             attr, val = item
             if idx == self.position:
@@ -371,7 +397,117 @@ class AttributeSelection(Menu):
                     curses.color_pair(1)
                     )
 
+    def print_player_stats(self):
+
+        def _print_stat(s):
+            self.window.addstr(self.margin+i,22,s,mode)
+            self.window.addstr(
+                           self.margin+i,37,
+                           str(self.player.get_stat(s)).rjust(2),
+                           mode
+                           )
+
+        mode = curses.color_pair(1)
+        self.window.addstr(self.margin,22,'Player Stats',
+                           self.info_msg | curses.A_BOLD
+                           )
+        i = 1
+        __stats = self.player.player_stats
+        for calc_stat in [s for s in __stats if not __stats[s][1]]:
+            _print_stat(calc_stat)
+            i += 1
+
+        for stat in [s for s in __stats if __stats[s][1]]:
+            _print_stat(stat)
+            i += 1
+
+        _print_stat('max_damage')
+
     def attribute_info(self):
         title = self.over
         desc = self.player.attr_desc[title]
+        self.draw_sidewin(title,desc)
+
+class ClassSelection(AttributeSelection):
+
+    def post_init(self, player):
+       self.player = player
+       self.side_win, self.desc_panel = self.side_panel(20,60,2,40)
+       self.items = [(pc.__name__,pc) for pc in CLASSES]
+       self.items.append(('Done',''))
+
+    def print_item_list(self):
+        self.window.addstr(self.margin,2,'Player Classes',
+                                self.info_msg | curses.A_BOLD)
+        for idx, item in enumerate(self.items):
+            cls_name, cls = item
+            if idx == self.position:
+                mode = curses.A_REVERSE
+            else:
+                mode = curses.A_NORMAL
+
+            self.window.addstr(self.margin+idx+2,2,cls_name,mode)
+
+    def main_loop(self):
+        if self.player.player_class is not None:
+            return
+        self.position=3
+        while True:
+            # Loop init, refresh windows and print menus
+            self._loop_start()
+            # Print menu items
+            self.print_item_list()
+            # Print the menu bar (Save/Quit)
+            self.menu_bar()
+
+            if not self.first_pass:
+                if not self.process_selection(self.window.getch()):
+                    break
+
+            self.first_pass = False
+
+            self.debug_info()
+            self.msg_bar()
+
+    def process_selection(self,key):
+        if key in [curses.KEY_ENTER, ord('\n')]:
+            if self.position == len(self.items)-1:
+                self.over=None
+                return False
+            else:
+                self.player.player_class = self.items[self.position][1]()
+                self.current_msg = 'Class selected: {}'.format(
+                                        self.items[self.position][0])
+                self.msg_bar()
+                return False
+
+        elif key == curses.KEY_UP:
+            self.navigate(-1)
+
+        elif key == curses.KEY_DOWN:
+            self.navigate(1)
+
+        elif key in [ord('S'),ord('s')]:
+            self.current_msg = 'You must select Attributes before saving!'
+            return True
+
+        elif key in [ord('Q'),ord('q')]:
+            self.over=None
+            return False
+
+        if self.position < len(self.items)-1:
+            cls = self.items[self.position][1]
+            self.over = cls.__name__
+            self.class_info(cls)
+            self.current_msg = 'Hit ENTER to select this class'
+        else:
+            self.clear_sidewin()
+            self.over = 'done'
+            self.current_msg = 'Hit ENTER to return to the previous menu'
+
+        return True
+
+    def class_info(self,cls):
+        title = self.over
+        desc = cls.description
         self.draw_sidewin(title,desc)

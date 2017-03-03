@@ -11,7 +11,7 @@
 import curses
 
 # package
-from util.menu import Menu, MenuItem, AttributeSelection
+from util.menu import Menu, MenuItem, AttributeSelection, ClassSelection
 
 # extended
 from pokeyworks import color_wrap, Color
@@ -45,9 +45,15 @@ class CharCreate(object):
         curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_RED)
 
     def class_select(self):
-        pass
+        menu = ClassSelection(self.screen, self)
+        menu.post_init(self.player)
+        menu.display()
 
     def attr_select(self):
+        if self.player.player_class is None:
+            self.main_menu.current_msg = 'Select a Class first!'
+            self.main_menu.msg_bar()
+            return
         menu = AttributeSelection(self.screen, self)
         menu.post_init(self.player)
         menu.display()

@@ -8,3 +8,28 @@ ATTRIBUTE_DESCRIPTIONS={
     'strength':"Contributes to physical attack damage and carry capacity",
     'wisdom':"Determines spell strength"
     }
+
+class Attribute(object):
+
+    def __init__(self):
+        pass
+
+class Health(Attribute):
+    name = 'health'
+
+class Attack(Attribute):
+    name = 'attack'
+
+class Defense(Attribute):
+    name = 'defense'
+
+class Focus(Attribute):
+    name = 'focus'
+
+class Strength(Attribute):
+    name = 'strength'
+
+class Wisdom(Attribute):
+    name = 'wisdom'
+
+ATTRIBUTES = [ Health, Attack, Defense, Focus, Strength, Wisdom ]
