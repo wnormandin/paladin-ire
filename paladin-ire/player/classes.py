@@ -16,6 +16,10 @@ class PlayerClass(object):
         self.sneak_enable = False
         self.resists = {}
 
+    def _select(self,entity):
+        entity.spells = self.spell_book_enable
+        entity.sneaks = self.sneak_enable
+
 class Warrior(PlayerClass):
 
     """ Warriors can use\nthe Bash, Block,\nand Kick skills """

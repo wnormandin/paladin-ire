@@ -71,8 +71,8 @@ class Menu(object):
     def debug_info(self):
 
         yval,xval = curses.getsyx()
-        y = self.maxy-3
-        x = self.maxx-22
+        y = self.maxy-4
+        x = self.maxx-17
 
         col = self.info_msg
         self.msg_list = [
@@ -125,6 +125,7 @@ class Menu(object):
         self._pre_loop()
         self.main_loop()
         self._post_loop()
+        return self.current_msg
 
     def _post_loop(self):
         self.window.clear()
@@ -145,8 +146,10 @@ class Menu(object):
                 self.window.addstr(2+item.index, 2, item.label, mode)
 
             if not self.first_pass:
+                self.tmp_msg = self.current_msg
                 key = self.window.getch()
             else:
+                self.tmp_msg = None
                 key = None
                 self.first_pass = False
 
@@ -154,7 +157,7 @@ class Menu(object):
                 if self.position == len(self.items)-1:
                     break
                 else:
-                    self.items[self.position].hook()
+                    self.current_msg = self.items[self.position].hook()
 
             elif key == curses.KEY_UP:
                 self.navigate(-1)
@@ -162,10 +165,11 @@ class Menu(object):
             elif key == curses.KEY_DOWN:
                 self.navigate(1)
 
-            if self.position == len(self.items)-1:
-                self.current_msg = 'Press ENTER to exit'
-            else:
-                self.current_msg = 'Press ENTER to select this option'
+            if self.tmp_msg is not None:
+                if self.position == len(self.items)-1:
+                    self.current_msg = 'Press ENTER to exit'
+                else:
+                    self.current_msg = 'Press ENTER to select this option'
 
             self.msg_bar()
 
@@ -305,8 +309,7 @@ class AttributeSelection(Menu):
             self.navigate(1)
 
         elif key in [ord('S'),ord('s')]:
-            self.save_entity()
-            return True
+            return self.save_entity()
 
         elif key in [ord('Q'),ord('q')]:
             self.over=None
@@ -356,17 +359,30 @@ class AttributeSelection(Menu):
         self.msg_bar()
         key = self.window.getch()
         if key in [ord('Y'),ord('y')]:
+            self.player.name = entry
             attrs = self.player.attributes[0]
             with open(fname, 'w+') as outf:
                 json.dump(
-                        {attr:getattr(self.player,attr) for attr in attrs},
+                        self.package_entity(),
                         outf
                         )
             self.current_msg = '{} saved!'.format(fname)
             self.attr_init()
+            return False
         else:
             self.current_msg = 'Entity save aborted!'
-            self.msg_bar
+            self.msg_bar()
+            return True
+
+    def package_entity(self):
+        return {
+            'name':self.player.name,
+            'class':self.player.player_class.__class__.__name__,
+            'attributes':{attr:getattr(self.player,attr) for attr in self.player.attributes[0]},
+            'resists':{res:getattr(self.player,res) for res in self.player.resists[0]},
+            'meta':{fl:getattr(self.player,fl) for fl in ('level','spells','sneaks','damage')},
+            'status':{st:getattr(self.player,st) for st in self.player.status_effects[0]}
+            }
 
     def print_item_list(self):
         self.window.addstr(self.margin,2,'Attributes ({})'.format(
@@ -476,6 +492,7 @@ class ClassSelection(AttributeSelection):
                 return False
             else:
                 self.player.player_class = self.items[self.position][1]()
+                self.player.player_class._select(self.player)
                 self.current_msg = 'Class selected: {}'.format(
                                         self.items[self.position][0])
                 self.msg_bar()

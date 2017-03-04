@@ -1,0 +1,1 @@
+{"status": {"blind": 0, "invincible": 0, "paralyzed": 0, "fast": 0}, "name": "Palson", "meta": {"damage": 0, "spells": true, "sneaks": false, "level": 1}, "resists": {"fire": 5, "death": 0, "detection": 0, "frost": 5}, "attributes": {"strength": 1, "focus": 8, "wisdom": 5, "attack": 1, "defense": 2, "health": 6, "luck": 2}, "class": "Mage"}

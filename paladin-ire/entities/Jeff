@@ -1,0 +1,1 @@
+{"status": {"blind": 0, "invincible": 0, "paralyzed": 0, "fast": 0}, "name": "Jeff", "meta": {"damage": 0, "spells": false, "sneaks": true, "level": 1}, "resists": {"fire": 0, "death": 0, "detection": 10, "frost": 0}, "attributes": {"strength": 2, "focus": 8, "wisdom": 1, "attack": 1, "defense": 8, "health": 4, "luck": 1}, "class": "Rogue"}

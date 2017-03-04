@@ -47,7 +47,7 @@ class CharCreate(object):
     def class_select(self):
         menu = ClassSelection(self.screen, self)
         menu.post_init(self.player)
-        menu.display()
+        return menu.display()
 
     def attr_select(self):
         if self.player.player_class is None:
@@ -56,7 +56,7 @@ class CharCreate(object):
             return
         menu = AttributeSelection(self.screen, self)
         menu.post_init(self.player)
-        menu.display()
+        return menu.display()
 
     def populate_menu(self):
         item_list = []

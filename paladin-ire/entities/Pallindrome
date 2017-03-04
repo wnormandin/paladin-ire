@@ -1,0 +1,1 @@
+{"status": {"blind": 0, "invincible": 0, "paralyzed": 0, "fast": 0}, "name": "Pallindrome", "meta": {"damage": 0, "spells": false, "sneaks": true, "level": 1}, "resists": {"fire": 0, "death": 0, "detection": 10, "frost": 0}, "attributes": {"strength": 3, "focus": 3, "wisdom": 2, "attack": 3, "defense": 4, "health": 5, "luck": 5}, "class": "Rogue"}
