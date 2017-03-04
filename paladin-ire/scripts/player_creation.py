@@ -12,9 +12,7 @@ import curses
 
 # package
 from util.menu import Menu, MenuItem, AttributeSelection, ClassSelection
-
-# extended
-from pokeyworks import color_wrap, Color
+from util.color import color_wrap, Color
 
 class CharCreate(object):
 
