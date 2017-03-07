@@ -3,7 +3,7 @@
 import logging
 
 import logging
-import os,sys
+import os, sys
 
 def setup_logger(args):
 
@@ -11,7 +11,7 @@ def setup_logger(args):
                                                  args.logpath)):
         fpath = _resolve_path(fpath)
         fmt = logging.Formatter('%(asctime)s %(threadName)-8s :: %(message)s')
-        file_handler = logging.FileHandler(fpath,'a')
+        file_handler = logging.FileHandler(fpath, 'a')
         file_handler.setFormatter(fmt)
         file_handler.setLevel(logger.level)
         logger.addHandler(file_handler)
@@ -41,7 +41,7 @@ def setup_logger(args):
     logger.setLevel(_get_level())
 
     if args.logging:
-        params = (logger,args.logpath,)
+        params = (logger, args.logpath,)
         __file_logging(*params)
 
     return logger

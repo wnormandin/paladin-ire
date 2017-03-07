@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import random
 
-NAME_LIST=['Flargin','Dingo','Mypaltr','Pallyride','Pallindrome','Jeff','Chaz',
-           'Molly','Martin','Grena','Palson','Rempo','Trixy','Mouse','Pal']
+NAME_LIST=['Flargin', 'Dingo', 'Mypaltr', 'Pallyride', 'Pallindrome', 'Jeff', 'Chaz',
+           'Molly', 'Martin', 'Grena', 'Palson', 'Rempo', 'Trixy', 'Mouse', 'Pal']
 
 class RandomRoll(object):
 
@@ -16,16 +16,16 @@ class RandomRoll(object):
         self.ub = ubound    # Random roll range upper-bound
         self.lb = lbound    # Random roll range lower-bound
 
-    def _calc_adv(self,skill):
+    def _calc_adv(self, skill):
         # Calculates skill checks
         if skill is not None:
-            chk_mod = getattr(self.player,skill)
+            chk_mod = getattr(self.player, skill)
             return (chk_mod / self.player.attr_limit) + 1.
         return 2.
 
     @property
     def possibles(self):
-        return range(self.min_val,self.max_val)
+        return list(range(self.min_val, self.max_val))
 
     def calc_bound(self,bound,mult=1.):
         assert isinstance(mult, float)
@@ -34,24 +34,24 @@ class RandomRoll(object):
     def execute(self):
         return random.choice(self.possibles)
 
-    def attr_roll(self,attr):
+    def attr_roll(self, attr):
         return self._calc_adv(attr)
 
     def roll(self,check,init=False):
-        self.max_val = self.calc_bound(self.ub, max(2.,self.attr_roll(check)))
+        self.max_val = self.calc_bound(self.ub, max(2., self.attr_roll(check)))
         if not init:
             self.min_val = self.calc_bound(self.lb, self.attr_roll('luck'))
         else:
             self.min_val = 1
         return self.execute()
 
-    def resist_roll(self,resist):
+    def resist_roll(self, resist):
         adv = self._calc_adv(resist)
         max_val = self.skill_max_val()
         result = self.roll(resist)
         return abs((result/max_val) - adv)
 
-    def atk_roll(self,goal):
+    def atk_roll(self, goal):
         # goal = roll attr or save for target/enemy
         result = self.roll('attack')
         if (result/float(goal)) > 1.25:
@@ -67,26 +67,26 @@ class Entity(object):
 
     """ General attributes/properties/methods for PC/NPC Entities """
 
-    attributes = ["health","attack","defense","focus","strength","wisdom","luck"], 1
-    resists = ["fire","frost","death","detection"], 0
-    status_effects = ["blind","paralyzed","invincible","fast"], 0
+    attributes = ["health", "attack", "defense", "focus", "strength", "wisdom", "luck"], 1
+    resists = ["fire", "frost", "death", "detection"], 0
+    status_effects = ["blind", "paralyzed", "invincible", "fast"], 0
     player_stats = {
-                    'hitpoints':(['health','health','defense'],False),
-                    'magic':(['wisdom','wisdom','focus'],False),
-                    'evade':(['defense','focus'],False),
-                    'carry':(['strength','strength','health'],False),
-                    'dodge':(['defense'],True),
-                    'sneak':(['focus'],True),
-                    'kick':(['strength'],True),
-                    'bash':(['strength'],True),
-                    'alteration':(['wisdom'],True),
-                    'destruction':(['wisdom'],True),
-                    'conjuration':(['wisdom'],True),
-                    'block':(['strength'],True),
-                    'backstab':(['focus'],True),
-                    'max_damage':(['strength','attack','luck'],True)
+                    'hitpoints':(['health', 'health', 'defense'], False),
+                    'magic':(['wisdom', 'wisdom', 'focus'], False),
+                    'evade':(['defense', 'focus'], False),
+                    'carry':(['strength', 'strength', 'health'], False),
+                    'dodge':(['defense'], True),
+                    'sneak':(['focus'], True),
+                    'kick':(['strength'], True),
+                    'bash':(['strength'], True),
+                    'alteration':(['wisdom'], True),
+                    'destruction':(['wisdom'], True),
+                    'conjuration':(['wisdom'], True),
+                    'block':(['strength'], True),
+                    'backstab':(['focus'], True),
+                    'max_damage':(['strength', 'attack', 'luck'], True)
                    }
-    core_stats = ['carry','hitpoints','magic','evade','max_damage']
+    core_stats = ['carry', 'hitpoints', 'magic', 'evade', 'max_damage']
 
     attr_desc = {
                  'health':'Contributes to\nplayer hit points',
@@ -116,13 +116,13 @@ class Entity(object):
             for item in items:
                 setattr(self, item, default)
 
-    def get_stat(self,stat):
+    def get_stat(self, stat):
         # Calculate the stat specified
         if stat not in self._skills_enabled:
             return 1
 
         calc_stat, lvl_based = self.player_stats[stat]
-        stat_val = sum([getattr(self,s) for s in calc_stat])
+        stat_val = sum([getattr(self, s) for s in calc_stat])
         if not lvl_based:
             return int((stat_val / float(self.attr_limit))*10 + stat_val)
         else:
@@ -131,9 +131,10 @@ class Entity(object):
     @property
     def _skills_enabled(self):
         base = self.core_stats
-        base.extend(self.player_class.class_skills)
-        for sk in ['sneaks','spells']:
-            if getattr(self,sk):
+        if self.player_class is not None:
+            base.extend(self.player_class.class_skills)
+        for sk in ['sneaks', 'spells']:
+            if getattr(self, sk):
                 base.append(sk)
         return base
 
@@ -153,7 +154,7 @@ class Entity(object):
     @property
     def attr_sum(self):
         # Calculate the entity's currently used attribute points
-        return sum([getattr(self,a) for a in self.attributes[0]])
+        return sum([getattr(self, a) for a in self.attributes[0]])
 
     @property
     def attr_limit(self):
@@ -180,7 +181,7 @@ class Entity(object):
         return False
 
     @alive.setter
-    def alive(self,revive):
+    def alive(self, revive):
         # Allows reviving/killing a player by setting
         # the alive property to True/False
         if revive: self.health = 1

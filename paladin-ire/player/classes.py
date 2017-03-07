@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import attributes
-from attributes import ATTRIBUTES, ATTRIBUTE_DESCRIPTIONS
+from . import attributes
+from .attributes import ATTRIBUTES, ATTRIBUTE_DESCRIPTIONS
 
 class PlayerClass(object):
 
@@ -16,7 +16,7 @@ class PlayerClass(object):
         self.sneak_enable = False
         self.resists = {}
 
-    def _select(self,entity):
+    def _select(self, entity):
         entity.spells = self.spell_book_enable
         entity.sneaks = self.sneak_enable
 
@@ -43,7 +43,7 @@ class Warrior(PlayerClass):
     preferred_attr = [ 'strength', 'attack' ]
 
     def __init__(self):
-        super(Warrior,self).__init__()
+        super(Warrior, self).__init__()
         self.class_skills = [ 'bash', 'block', 'kick' ]
         self.resists['death'] = 10
 
@@ -65,10 +65,10 @@ class Mage(PlayerClass):
   damage shield or other helpful items.
   """
 
-    preferred_attr = [ 'focus','wisdom' ]
+    preferred_attr = [ 'focus', 'wisdom' ]
 
     def __init__(self):
-        super(Mage,self).__init__()
+        super(Mage, self).__init__()
         self.class_skills = [ 'alteration', 'destruction', 'conjuration' ]
         self.spell_book_enable = True
         self.resists['fire'] = 5
@@ -91,10 +91,10 @@ class Rogue(PlayerClass):
   inflict status effects on enemies.
   """
 
-    preferred_attr = [ 'defense','focus' ]
+    preferred_attr = [ 'defense', 'focus' ]
 
     def __init__(self):
-        super(Rogue,self).__init__()
+        super(Rogue, self).__init__()
         self.class_skills = [ 'backstab', 'sneak', 'dodge' ]
         self.sneak_enable = True
         self.resists['detection'] = 10

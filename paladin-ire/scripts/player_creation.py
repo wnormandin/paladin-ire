@@ -11,23 +11,35 @@
 import curses
 
 # package
-from util.menu import Menu, MenuItem, AttributeSelection, ClassSelection
+from util.menu import Menu, MenuItem, AttributeSelection, ClassSelection, OptionMenu
 from util.color import color_wrap, Color
 
 class CharCreate(object):
 
-    def __init__(self, stdscreen, player):
+    def __init__(self, stdscreen, player, args):
+        self.args = args
         self.screen = stdscreen
         self.curses_init()
         self.player = player
 
         self.menu_items=(
-                MenuItem('Select Class',self.class_select,0),
-                MenuItem('Set Attributes',self.attr_select,1)
+                MenuItem('Select Class', self.class_select, 0),
+                MenuItem('Set Attributes', self.attr_select, 1),
+                MenuItem('Start Game', self.go, 2),
+                MenuItem('Options', self.opt_menu, 3)
                 )
 
         self.populate_menu()
         self.main_menu.display()
+
+    def go(self):
+        # no-op
+        pass
+
+    def opt_menu(self):
+        menu = OptionMenu(self.screen, self)
+        menu.post_init()
+        return menu.display()
 
     def curses_init(self):
         curses.curs_set(0)
@@ -44,7 +56,7 @@ class CharCreate(object):
 
     def class_select(self):
         menu = ClassSelection(self.screen, self)
-        menu.post_init(self.player)
+        menu.post_init()
         return menu.display()
 
     def attr_select(self):
@@ -53,7 +65,7 @@ class CharCreate(object):
             self.main_menu.msg_bar()
             return
         menu = AttributeSelection(self.screen, self)
-        menu.post_init(self.player)
+        menu.post_init()
         return menu.display()
 
     def populate_menu(self):
@@ -63,5 +75,5 @@ class CharCreate(object):
         self.main_menu = Menu(self.screen, self)
         self.main_menu.post_init(item_list)
 
-def character_creation(player):
-    curses.wrapper(CharCreate, player)
+def character_creation(player, args):
+    curses.wrapper(CharCreate, player, args)
