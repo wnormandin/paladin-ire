@@ -9,7 +9,7 @@ from player.core import NAME_LIST
 from player.classes import CLASSES
 import player.classes
 
-class Menu(object):
+class GameWindow(object):
 
     def __init__(self, stdscreen, app):
         self.window = stdscreen.subwin(0, 0)
@@ -22,9 +22,82 @@ class Menu(object):
         self.app = app
         self.dbg_msg_list = []
         self.current_msg = ''
-        self.first_pass = True
         self.over = None
-        self.show_stats = False
+        self.last_keystroke = None
+
+        self._init_char_window()
+
+    def _init_char_window(self):
+        self.char_win, self.char_panel = self.side_panel(6, 29,
+                                         self.maxy-8, 2)
+
+    def draw_charinfo(self):
+        win = self.char_win
+
+        for i in range(1,5):
+            win.move(i, 2)
+            win.clrtoeol()
+
+        # Display player name
+        win.addstr(1,2,'Player :  {:>15}'.format(self.app.player.name))
+
+        # Display player class
+        cls = self.app.player.player_class
+        cls_str = 'None' if cls is None else cls.__class__.__name__
+        win.addstr(2,2,'Class  :  {:>15}'.format(cls_str))
+
+        # Display health indicator
+        hp_str = '*' * int(((self.app.player.hp_percent*100) + 9) // 10)
+        win.addstr(3,2,'HP     :  ({:>2}) {:->10}'.format(
+                                self.app.player.hitpoints,
+                                hp_str
+                                ))
+
+        # Display magic indicator
+        mp_str = '*' * int(((self.app.player.mp_percent*100) + 9) // 10)
+        win.addstr(4,2,'MP     :  ({:>2}) {:->10}'.format(
+                                self.app.player.magic,
+                                mp_str
+                                ))
+
+        win.box()
+
+    def execute(self):
+        while True:
+            self._loop_begin()
+            self.char_win.overlay(self.window)
+            self.draw_charinfo()
+            if not self.main_loop():
+                break
+            self._loop_end()
+
+    def main_loop(self):
+        input('continue')
+        return False
+
+    def clear_win(self, win):
+        for j in range(win.getmaxyx()[0]):
+            self._pre_draw(j, 1)
+
+    def side_panel(self, h, l, y, x):
+        win = curses.newwin(h, l, y, x)
+        #win.erase()
+        win.box()
+        panel = curses.panel.new_panel(win)
+        return win, panel
+
+    def set_styles(self):
+        self.info_msg = curses.color_pair(1)
+        self.err_msg = curses.color_pair(2)
+        self.hlt_msg = curses.color_pair(3)
+        self.margin = 3
+
+    def navigate(self, n):
+        self.position += n
+        if self.position < 0:
+            self.position = 0
+        elif self.position >= len(self.items):
+            self.position = len(self.items) -1
 
     def menu_bar(self,val_list=['S: Save', 'Q: Quit']):
         if val_list:
@@ -44,8 +117,87 @@ class Menu(object):
             col
             )
 
+    def _loop_begin(self):
+        self.window.noutrefresh()
+        self.window.box()
+        curses.doupdate()
+
+    def _loop_end(self):
+        # Draw debug info, the top menu  bar, and the bottom msg bar
+        # at the end of each main_loop iteration
+        self.debug_info()
+        self.menu_bar()
+        self.msg_bar()
+
+    def _pre_draw(self, yv, xv):
+        win = self.window
+        win.move(yv, xv)
+        win.clrtoeol()
+        win.noutrefresh()
+
+    def capture(self, y, x, length):
+        curses.echo()
+        self.window.move(y, x)
+        val = self.window.getstr(y, x, length)
+        curses.noecho()
+        self.window.move(0, 0)
+        return val.decode(encoding='utf-8')
+
+    def debug_info(self):
+
+        if self.app.args.debug or self.app.args.verbose:
+            yval, xval = curses.getsyx()
+            y = self.maxy-6
+            x = self.maxx-17
+
+            col = self.info_msg
+            self.msg_list = [
+                            'pos:{}'.format(self.position),
+                            'over:{}'.format(self.over),
+                            'maxy:{}'.format(self.maxy),
+                            'maxx:{}'.format(self.maxx),
+                            'cursor:{},{}'.format(yval, xval),
+                            'key:{}'.format(self.last_keystroke)
+                            ]
+
+            for i, val in enumerate(self.msg_list):
+                self._pre_draw(y-i, x)
+                self.window.addstr(y-i, x, val, col)
+
+    def _parse_keystroke(self, key):
+        if key in [curses.KEY_ENTER, ord('\n')]:
+            return 'enter'
+        elif key in [curses.KEY_BACKSPACE, ord('\b'), 127]:
+            return 'backspace'
+        elif key in [curses.KEY_UP]:
+            return 'up'
+        elif key in [curses.KEY_DOWN]:
+            return 'down'
+        elif key in [curses.KEY_LEFT]:
+            return 'left'
+        elif key in [curses.KEY_RIGHT]:
+            return 'right'
+        elif key == ' ':
+            return 'space'
+        else:
+            return r'{}'.format(key)
+
+class Menu(GameWindow):
+
+    def __init__(self, stdscreen, app):
+        super().__init__(stdscreen, app)
+        self.first_pass = True
+        self.show_stats = False
+
     def refresh_attributes(self):
         pass
+
+    def menu_bar(self,val_list=['S: Save', 'Q: Quit', 'N: Name Player']):
+        # Overriding this to extend the default menu options in the game menu
+        if val_list:
+            menu = ' | '.join(val_list)
+            self._pre_draw(1, 2)
+            self.window.addstr(1, 2, menu, curses.color_pair(3))
 
     def _default_selections(self, key):
         if key == curses.KEY_UP:
@@ -53,6 +205,12 @@ class Menu(object):
 
         elif key == curses.KEY_DOWN:
             self.navigate(1)
+
+        elif key in [ord('N'), ord('n')]:
+            entry = self.msg_bar_prompt('Choose a name (Blank={}, 15 chars): ', self.getfilename)
+            self.app.player.name = entry
+            self.msg_bar('Name selected: {}'.format(entry))
+            self.draw_charinfo()
 
         elif key in [ord('S'), ord('s')]:
             if not self.app.player.init_complete:
@@ -65,88 +223,34 @@ class Menu(object):
             return False
         return True
 
-    def _loop_begin(self):
-        self.window.refresh()
-        self.window.box()
-        curses.doupdate()
-
-    def _loop_end(self):
-        # Draw debug info, the top menu  bar, and the bottom msg bar
-        # at the end of each main_loop iteration
-        self.debug_info()
-        self.menu_bar()
-        self.msg_bar()
-
     def draw_sidewin(self, title, msg):
-        self._pre_draw(2, 2)
+        self.clear_win(self.side_win)
         self.side_win.addstr(2, self.margin+1, title,
                 curses.A_BOLD | curses.color_pair(3)
                 )
         i = self.margin+1
-        self.clear_sidewin()
         for line in msg.split('\n'):
             self.side_win.addstr(i, self.margin+1, line)
             i += 1
-
-    def draw_charinfo(self):
-        yval, xval = self.window.getmaxyx()
-        self.char_win, self.char_panel = self.side_panel(
-                                    5, 40, yval-7,self.margin)
-
-
-    def clear_sidewin(self):
-        for j in range(self.side_win.getmaxyx()[0]):
-            self._pre_draw(j, 2)
-
-    def side_panel(self, h, l, y, x):
-        win = curses.newwin(h, l, y, x)
-        win.erase()
-        win.box()
-        panel = curses.panel.new_panel(win)
-        return win, panel
-
-    def _pre_draw(self, yv, xv):
-        self.window.move(yv, xv)
-        self.window.clrtoeol()
-
-    def debug_info(self):
-
-        if self.app.args.debug or self.app.args.verbose:
-            yval, xval = curses.getsyx()
-            y = self.maxy-4
-            x = self.maxx-17
-
-            col = self.info_msg
-            self.msg_list = [
-                            'pos:{}'.format(self.position),
-                            'over:{}'.format(self.over),
-                            'maxy:{}'.format(self.maxy),
-                            'maxx:{}'.format(self.maxx),
-                            'cursor:{},{}'.format(yval, xval)
-                            ]
-
-            for i, val in enumerate(self.msg_list):
-                self._pre_draw(y-i, x)
-                self.window.addstr(y-i, x, val, col)
-
-    def set_styles(self):
-        self.info_msg = curses.color_pair(1)
-        self.err_msg = curses.color_pair(2)
-        self.hlt_msg = curses.color_pair(3)
-
-        self.margin = 3
 
     @property
     def getfilename(self):
         return random.choice(NAME_LIST)
 
-    def save_entity(self):
-        default = self.getfilename
-        self.msg_bar('Input a file name (Blank={}, 15 chars max): '.format(default))
+    def msg_bar_prompt(self, prompt, default=None):
+        # displays the prompt in the message bar and
+        # awaits user input, 15 characters max. A
+        # default value should be specified and in
+        # the prompt via format spec
+        self.msg_bar(prompt.format(default))
         msg_len = len(self.current_msg)
         entry=self.capture(self.maxy-2, msg_len+1, 15)
         if not entry:
             entry = default
+        return entry
+
+    def save_entity(self):
+        entry = self.msg_bar_prompt('Input a file name (Blank={}, 15 chars): ', self.getfilename)
         fname='./entities/{}'.format(entry)
         self.msg_bar('Save entity "{}"? (Y/n): '.format(fname))
         key = self.window.getch()
@@ -160,6 +264,7 @@ class Menu(object):
                         )
             self.msg_bar('{} saved!'.format(fname))
             self.refresh_attributes()
+            self.draw_charinfo()
             return False
         else:
             self.msg_bar('Entity save aborted!')
@@ -175,25 +280,11 @@ class Menu(object):
             'status':{st:getattr(self.app.player, st) for st in self.app.player.status_effects[0]}
             }
 
-    def capture(self, y, x, length):
-        curses.echo()
-        self.window.move(y, x)
-        val = self.window.getstr(y, x, length)
-        curses.noecho()
-        self.window.move(0, 0)
-        return val
-
     def post_init(self, items):
         self.items = items
         self.items.append(MenuItem('Back', 'exit', len(items)))
         self.start_pos = 0
 
-    def navigate(self, n):
-        self.position += n
-        if self.position < 0:
-            self.position = 0
-        elif self.position >= len(self.items):
-            self.position = len(self.items) -1
 
     def _pre_loop(self):
         self.maxy, self.maxx = self.window.getmaxyx()
@@ -216,13 +307,6 @@ class Menu(object):
         panel.update_panels()
         curses.doupdate()
 
-    def execute(self):
-        while True:
-            self._loop_begin()
-            if not self.main_loop():
-                break
-            self._loop_end()
-
     def print_item_list(self):
         for item in self.items:
             if item.index == self.position:
@@ -240,13 +324,25 @@ class Menu(object):
 
     def main_loop(self):
         self.print_item_list()
+        self.draw_charinfo()
         if not self.first_pass:
             return self.process_selection(self.window.getch())
         else:
             self._first_pass()
         return True
 
+    def _msg_bar_update(self):
+        if self.position == len(self.items)-1:
+            self.msg_bar('Hit ENTER to exit this menu')
+        elif self.position == len(self.items)-2:
+            self.msg_bar('Press ENTER to edit game optons')
+        elif self.position == len(self.items)-3:
+            self.msg_bar('Press ENTER to start the game (not implemented)')
+        else:
+            self.msg_bar('Hit ENTER to choose this option')
+
     def process_selection(self, key):
+        self.last_keystroke = self._parse_keystroke(key)
         if key in [curses.KEY_ENTER, ord('\n')]:
             if self.position == len(self.items)-1:
                 return False
@@ -254,7 +350,10 @@ class Menu(object):
                 self.current_msg = self.items[self.position].hook()
                 self.window.box()
 
-        return self._default_selections(key)
+        result = self._default_selections(key)
+        self._msg_bar_update()
+
+        return result
 
 class MenuItem():
 
@@ -356,12 +455,14 @@ class AttributeSelection(Menu):
         self.first_pass = False
 
     def process_selection(self, key):
+        self.last_keystroke = self._parse_keystroke(key)
         if key in [curses.KEY_ENTER, ord('\n')]:
             if self.position == len(self.items)-1:
                 if self.app.player.free_attr > 0:
                     self.msg_bar('{} attribute points to assign!'.format(self.app.player.free_attr))
                     return True
-                self.app.player.init_complete = True
+
+                self.app.player.complete_init()
                 self.over=None
                 return False
             elif self.position == len(self.items)-2:
@@ -374,25 +475,29 @@ class AttributeSelection(Menu):
             else:
                 if self.app.player.free_attr > 0:
                     self.incr_attr()
+                    if self.app.player.free_attr == 0:
+                        self.app.player.complete_init()
                 else:
                     #self.current_msg = 'No remaining attribute points'
                     self.msg_bar()
                     return True
+
+        result = self._default_selections(key)
 
         if self.position < len(self.items)-2:
             self.over = self.app.player.attributes[0][self.position]
             self.attribute_info()
             self.current_msg = 'Hit ENTER to increase this attribute'
         elif self.position == len(self.items)-2:
-            self.clear_sidewin()
+            self.clear_win(self.side_win)
             self.over = 're-roll'
             self.current_msg = 'Hit ENTER to re-roll attributes'
         else:
-            self.clear_sidewin()
+            self.clear_win(self.side_win)
             self.over = 'done'
             self.current_msg = 'Hit ENTER to return to the previous menu'
-
-        return self._default_selections(key)
+        self.draw_charinfo()
+        return result
 
     def incr_attr(self):
         self.debug_info()
@@ -489,16 +594,19 @@ class ClassSelection(AttributeSelection):
         self.first_pass = False
 
     def process_selection(self, key):
-        if key in [curses.KEY_ENTER, ord('\n')]:
+        self.last_keystroke = self._parse_keystroke(key)
+        if self.last_keystroke == 'enter':
             if self.position == len(self.items)-1:
                 self.over=None
                 return False
             else:
                 self.app.player.player_class = self.items[self.position][1]()
-                self.app.player.player_class._select(self.app.player)
                 self.current_msg = 'Class selected: {}'.format(
                                         self.items[self.position][0])
+                self.draw_charinfo()
                 return False
+
+        result = self._default_selections(key)
 
         if self.position < len(self.items)-1:
             cls = self.items[self.position][1]
@@ -506,11 +614,12 @@ class ClassSelection(AttributeSelection):
             self.class_info(cls)
             self.current_msg = 'Hit ENTER to select this class'
         else:
-            self.clear_sidewin()
+            self.clear_win(self.side_win)
             self.over = 'done'
             self.current_msg = 'Hit ENTER to return to the previous menu'
 
-        return self._default_selections(key)
+        self.draw_charinfo()
+        return result
 
     def class_info(self, cls):
         title = self.over
@@ -548,39 +657,57 @@ class OptionMenu(AttributeSelection):
     def _first_pass(self):
         self.first_pass = False
 
+    def _increment_value(self,v, max_val=5):
+        if isinstance(v, (bool)):
+            v = not v
+        elif isinstance(v, (int)):
+            if self.last_keystroke == 'enter':
+                if v < max_val:
+                    v += 1
+                else:
+                    self.msg_bar('Option at max!')
+            if self.last_keystroke == 'backspace':
+                if v > 0:
+                    v -= 1
+                else:
+                    self.msg_bar('Already at 0!')
+        return v
+
     def process_selection(self, key):
-        if key in [curses.KEY_ENTER, ord('\n')]:
+        self.last_keystroke = self._parse_keystroke(key)
+
+        if self.last_keystroke == 'enter':
             if self.position == len(self.items)-1:
                 self.over=None
                 return False
-            else:
-                for idx, item in enumerate(self.items):
-                    if idx == self.position:
-                        # Get the value
-                        v = self.items[self.position][1]
-                        if isinstance(v, (bool)):
-                            v = not v
-                        elif isinstance(v, (int)):
-                            v += 1
-                        setattr(self.app.args, item[0], v)
-                self.print_item_list()
+
+        if self.last_keystroke in ['enter', 'backspace']:
+            for idx, item in enumerate(self.items):
+                if idx == self.position:
+                    setattr(self.app.args, item[0], self._increment_value(item[1]))
+                    return True
+
+            self.print_item_list()
+
+        result = self._default_selections(key)
 
         if self.position < len(self.items)-1:
             self.over = self.items[self.position][0]
             self.option_info()
-            self.current_msg = 'Hit ENTER to toggle this Game Option'
+            self.msg_bar('Hit ENTER / DELETE to toggle this Game Option')
         else:
-            self.clear_sidewin()
+            self.clear_win(self.side_win)
             self.over = 'done'
-            self.current_msg = 'Hit ENTER to return to the previous menu'
+            self.msg_bar('Hit ENTER to return to the previous menu')
 
-        return self._default_selections(key)
+        return result
 
     def option_info(self):
         # Option menu side window descriptions
         descriptions={
             'debug':"Debug run, enables in-game\ndebug options and status\ndisplay",
-            'difficulty':"Set game difficulty"
+            'difficulty':"Set game difficulty",
+            'done':''
             }
-        title = self.over
+        title = self.over.lower()
         self.draw_sidewin(title, descriptions[title])

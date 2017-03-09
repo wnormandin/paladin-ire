@@ -105,9 +105,28 @@ class Entity(object):
         self.player_class = None
         self.init_complete = False
         self.damage = 0
-        self.spells = False
-        self.sneaks = False
         self._skills_enabled = None
+        self.name = ''
+        self.max_hp = 1
+        self.max_mp = 1
+        self.hitpoints = 0
+        self.magic = 0
+
+    @property
+    def sneaks(self):
+        cls = self.player_class
+        if cls is None or not cls.sneak_enable:
+            return False
+        elif cls.sneak_enabled:
+            return True
+
+    @property
+    def spells(self):
+        cls = self.player_class
+        if cls is None or not cls.spell_book_enable:
+            return False
+        elif cls.spell_book_enable:
+            return True
 
     def _attr_init(self):
         attrs = self.attributes, self.resists, self.status_effects
@@ -116,8 +135,22 @@ class Entity(object):
             for item in items:
                 setattr(self, item, default)
 
+    def complete_init(self):
+        # Magic and hitpoints need to persist and not
+        # calculate during gameplay
+        self.hitpoints = self.get_stat('hitpoints')
+        self.magic = self.get_stat('magic')
+        self.max_hp = self.hitpoints
+        self.max_mp = self.magic
+        self.init_complete = True
+
+    def heal(self, pts=0):
+        if pts == 0:
+            self.hitpoints = self.max_hp
+        else:
+            self.hitpoints = min( self.max_hp, self.hitpoints + pts )
+
     def get_stat(self, stat):
-        # Calculate the stat specified
         if stat not in self._skills_enabled:
             return 1
 
@@ -177,12 +210,20 @@ class Entity(object):
 
     @property
     def alive(self):
-        if self.health > 0: return True
+        if self.hitpoints > 0: return True
         return False
 
     @alive.setter
     def alive(self, revive):
         # Allows reviving/killing a player by setting
         # the alive property to True/False
-        if revive: self.health = 1
-        else: self.health = 0
+        if revive: self.hitpoints = 1
+        else: self.hitpoints = 0
+
+    @property
+    def hp_percent(self):
+        return self.hitpoints / self.max_hp
+
+    @property
+    def mp_percent(self):
+        return self.magic / self.max_mp
