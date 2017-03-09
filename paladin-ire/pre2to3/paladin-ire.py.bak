@@ -1,0 +1,49 @@
+#!/usr/bin/env python3.6
+# -*- coding: utf-8 -*-
+
+import logging
+import tty, termios, sys
+from .scripts.player_creation import character_creation
+from .player.player import Player
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c','--create',action='store_true',help='Create a new character')
+    parser.add_argument('-d','--debug',action='store_true',help='Debug run')
+    parser.add_argument('-v','--verbose',action='store_true',help='More verbose output')
+    parser.add_argument('--difficulty',type=int,default=1,help='Game difficulty (default=1:Easy)')
+    return parser.parse_args()
+
+def console_prompt(msg=None):
+
+    """ Switch to unbuffered mode and read one char with optional prompt """
+
+    if msg is not None:
+        print(msg)
+    else:
+        print('Press any key to continue')
+
+    fd=sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
+
+if __name__ == "__main__":
+    args = parse_args()
+    if args.create:
+        p = Player()
+        character_creation(p,args)
+    if args.debug:
+        print("\n[*] Paladin-Ire Debug Run Initiated" \
+              "\n -  Verbose messages ON\n")
+        console_prompt()
+        print("[*] Spawning player")
+        p = Player()
+        print("[*] Pre-game checks complete")
+        console_prompt('Press any key for the game menu')
+        character_creation(p,args)
