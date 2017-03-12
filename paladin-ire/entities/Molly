@@ -1,1 +1,1 @@
-{"strength": 2, "focus": 3, "wisdom": 1, "attack": 1, "defense": 2, "health": 2, "luck": 1}
+{"name": "Molly", "class": "Warrior", "attributes": {"health": 4, "attack": 6, "defense": 2, "focus": 6, "strength": 3, "wisdom": 2, "luck": 2}, "resists": {"fire": 0, "frost": 0, "death": 10, "detection": 0}, "meta": {"level": 1, "spells": false, "sneaks": false, "damage": 0}, "status": {"blind": 0, "paralyzed": 0, "invincible": 0, "fast": 0}}

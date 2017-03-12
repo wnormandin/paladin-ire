@@ -8,10 +8,12 @@ from player.core import RandomRoll as roll
 from player.core import NAME_LIST
 from player.classes import CLASSES
 import player.classes
+from scripts.world_generation import MapGenerator
 
 class GameWindow(object):
 
     def __init__(self, stdscreen, app):
+        self.stdscreen = stdscreen
         self.window = stdscreen.subwin(0, 0)
         self.set_styles()
         self.window.keypad(1)
@@ -74,6 +76,24 @@ class GameWindow(object):
     def main_loop(self):
         input('continue')
         return False
+
+    def msg_bar_prompt(self, prompt, default=None):
+        # displays the prompt in the message bar and
+        # awaits user input, 15 characters max. A
+        # default value should be specified and in
+        # the prompt via format spec
+        self.msg_bar(prompt.format(default))
+        msg_len = len(self.current_msg)
+        entry=self.capture(self.maxy-2, msg_len+1, 15)
+        if not entry:
+            entry = default
+        return entry
+
+    def display(self):
+        self._pre_loop()
+        self.execute()
+        self._post_loop()
+        return self.current_msg
 
     def clear_win(self, win):
         for j in range(win.getmaxyx()[0]):
@@ -169,18 +189,87 @@ class GameWindow(object):
             return 'enter'
         elif key in [curses.KEY_BACKSPACE, ord('\b'), 127]:
             return 'backspace'
-        elif key in [curses.KEY_UP]:
+        elif key in [curses.KEY_UP, 65]:
             return 'up'
-        elif key in [curses.KEY_DOWN]:
+        elif key in [curses.KEY_DOWN, 66]:
             return 'down'
-        elif key in [curses.KEY_LEFT]:
+        elif key in [curses.KEY_LEFT, 68]:
             return 'left'
-        elif key in [curses.KEY_RIGHT]:
+        elif key in [curses.KEY_RIGHT, 67]:
             return 'right'
-        elif key == ' ':
+        elif key in [' ', ord(' ')]:
             return 'space'
+        elif key in [113, ord('q'), 81, ord('Q')]:
+            return 'q'
         else:
             return r'{}'.format(key)
+
+class MapWindow(GameWindow):
+
+    def __init__(self, stdscreen, app):
+        super().__init__(stdscreen, app)
+        _h, _l, _x, _y = self.map_win_bounds()
+        self.map_gen = MapGenerator(_h-1, _l-1)
+        self.map_win, self.map_panel = self.side_panel(_h, _l, _x, _y)
+        self.current_level = self.map_gen.add_map()
+        self.position = 0
+
+    def map_win_bounds(self):
+        self.maxy, self.maxx = self.window.getmaxyx()
+        map_minx = 1
+        map_maxx = 75
+        map_miny = 1
+        map_maxy = self.maxy - 8
+        return map_maxy-map_miny, map_maxx-map_minx, 2, 2
+
+    def draw_map(self):
+
+        def _clear():
+            wy, wx = self.map_win.getmaxyx()
+            for i in range(1,wy):
+                self.map_win.move(i, 1)
+                self.map_win.clrtoeol()
+
+        _clear()
+        self.map_win.box()
+        for y in range(1,self.map_gen.bounds[0]):
+            for x in range(1,self.map_gen.bounds[1]):
+                tile = self.current_level.grid[y,x]
+                if not tile:
+                    msg = ' '
+                    mode = curses.A_NORMAL
+                else:
+                    msg = tile['character']
+                    mode = curses.A_NORMAL
+                self.map_win.addstr(y, x, msg, mode)
+
+    def main_loop(self):
+        self.menu_bar(val_list=['Q: Main Menu'])
+        self.draw_map()
+        self.draw_charinfo()
+        self.msg_bar('Choose an action')
+        self.process_selection(self.map_win.getch())
+        return True
+
+    def process_selection(self, key):
+        self.last_keystroke = self._parse_keystroke(key)
+        if key in [curses.KEY_ENTER, ord('\n')]:
+            return True
+        if self.last_keystroke in ['esc','q']:
+            return False
+
+        #result = self._default_selections(key)
+        self.draw_charinfo()
+        return True
+
+    def draw_entities(self):
+        pass
+
+    def _pre_loop(self):
+        pass
+
+    def _post_loop(self):
+        pass
 
 class Menu(GameWindow):
 
@@ -237,18 +326,6 @@ class Menu(GameWindow):
     def getfilename(self):
         return random.choice(NAME_LIST)
 
-    def msg_bar_prompt(self, prompt, default=None):
-        # displays the prompt in the message bar and
-        # awaits user input, 15 characters max. A
-        # default value should be specified and in
-        # the prompt via format spec
-        self.msg_bar(prompt.format(default))
-        msg_len = len(self.current_msg)
-        entry=self.capture(self.maxy-2, msg_len+1, 15)
-        if not entry:
-            entry = default
-        return entry
-
     def save_entity(self):
         entry = self.msg_bar_prompt('Input a file name (Blank={}, 15 chars): ', self.getfilename)
         fname='./entities/{}'.format(entry)
@@ -295,11 +372,11 @@ class Menu(GameWindow):
         self.first_pass = True
         self.position = self.start_pos
 
-    def display(self):
-        self._pre_loop()
-        self.execute()
-        self._post_loop()
-        return self.current_msg
+    #def display(self):
+    #    self._pre_loop()
+    #    self.execute()
+    #    self._post_loop()
+    #    return self.current_msg
 
     def _post_loop(self):
         self.window.clear()

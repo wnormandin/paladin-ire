@@ -1,0 +1,1 @@
+{"name": "pokeybill", "class": "Warrior", "attributes": {"health": 4, "attack": 2, "defense": 4, "focus": 1, "strength": 10, "wisdom": 3, "luck": 1}, "resists": {"fire": 0, "frost": 0, "death": 10, "detection": 0}, "meta": {"level": 1, "spells": false, "sneaks": false, "damage": 0}, "status": {"blind": 0, "paralyzed": 0, "invincible": 0, "fast": 0}}

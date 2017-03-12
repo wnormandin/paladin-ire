@@ -117,7 +117,7 @@ class Entity(object):
         cls = self.player_class
         if cls is None or not cls.sneak_enable:
             return False
-        elif cls.sneak_enabled:
+        elif cls.sneak_enable:
             return True
 
     @property

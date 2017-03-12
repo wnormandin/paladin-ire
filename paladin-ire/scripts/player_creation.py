@@ -1,7 +1,7 @@
 #!/usr/bin/env/python2.7
 #-*- coding: utf-8 -*-
 
-#   PC/NPC Generation Script
+#   Main Menu
 #   Using ../player/*, generate a player
 #   Menu-Driven, optionally run as a
 #   command-line script with options to
@@ -11,48 +11,43 @@
 import curses
 
 # package
-from util.menu import Menu, MenuItem, AttributeSelection, ClassSelection, OptionMenu
+from util.menu import Menu, MenuItem, AttributeSelection, ClassSelection, OptionMenu, MapWindow
 from util.color import color_wrap, Color
+from player.player import Player
+from .world_generation import MapGenerator
 
-class CharCreate(object):
+class MainMenu(object):
 
-    def __init__(self, stdscreen, player, args):
-        self.args = args
+    def __init__(self, stdscreen, player, parent):
+        self.parent = parent
+        self.args = parent.args
         self.screen = stdscreen
-        self.curses_init()
         self.player = player
-
+        self.map_generator = None
         self.menu_items=(
-                MenuItem('Select Class', self.class_select, 0),
-                MenuItem('Set Attributes', self.attr_select, 1),
-                MenuItem('Start Game', self.go, 2),
-                MenuItem('Options', self.opt_menu, 3)
+                MenuItem('New Player', self.recreate_player, 0),
+                MenuItem('Select Class', self.class_select, 1),
+                MenuItem('Set Attributes', self.attr_select, 2),
+                MenuItem('Start Game', self.go, 3),
+                MenuItem('Options', self.opt_menu, 4)
                 )
-
         self.populate_menu()
         self.main_menu.display()
 
+    def recreate_player(self):
+        self.parent.player = self.player = Player()
+        self.main_menu.msg_bar('[*] Player refreshed')
+        self.main_menu.draw_charinfo()
+
     def go(self):
-        # no-op
-        pass
+        game = MapWindow(self.screen, self.parent)
+        # game.post_init()
+        return game.display()
 
     def opt_menu(self):
         menu = OptionMenu(self.screen, self)
         menu.post_init()
         return menu.display()
-
-    def curses_init(self):
-        curses.curs_set(0)
-        curses.start_color()
-        curses.use_default_colors()
-        self.set_colors()
-
-    def set_colors(self):
-        curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
-        curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
-        curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLUE)
-        curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_BLUE)
-        curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_RED)
 
     def class_select(self):
         menu = ClassSelection(self.screen, self)
@@ -74,6 +69,3 @@ class CharCreate(object):
             item_list.append(item)
         self.main_menu = Menu(self.screen, self)
         self.main_menu.post_init(item_list)
-
-def character_creation(player, args):
-    curses.wrapper(CharCreate, player, args)

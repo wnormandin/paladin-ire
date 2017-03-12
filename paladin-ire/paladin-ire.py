@@ -2,11 +2,12 @@
 
 import logging
 import tty, termios, sys
-from scripts.player_creation import character_creation
+from scripts.player_creation import MainMenu
 from player.player import Player
 import argparse
 import pdb
 import signal
+import curses
 
 this = sys.modules[__name__]
 
@@ -59,64 +60,86 @@ def console_prompt(msg=None):
     return ch
 
 def graceful_exit(num, frame):
-    signal.signal(signal.SIGINT, signal_orig)
+    signal.signal(signal.SIGINT, this.signal_orig)
     # Graceful exit stuff here
     raise KeyboardInterrupt
 
-if __name__ == "__main__":
-    try:
+class GameApp(object):
+
+    """ Primary game application class, controls menus and the flow of the game """
+
+    def __init__(self):
         # Capture Ctrl+C immediately, rather than waiting for
         # Python to catch it
         this.signal_orig = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, graceful_exit)
 
-        # Parse and validate arguments
-        args = parse_args()
+        # Parse the command-line arguments
+        self.args = parse_args()
 
-        # Set the tty size, may not function on all terminals
-        if args.verbose > 0:
-            print("[*] Resizing the terminal")
-        try:
-            sys.stdout.write("\x1b[8;{};{}t".format(
-                        args.dimensions[1], args.dimensions[0])
-                        )
-        except:
-            if args.debug: raise
-            if args.verbose > 0:
-                print("[*] Terminal resize failed")
+    def __curses_init(self):
 
-        if args.create:
-            # Runs the (main) menu currently, adapt to
-            # allow creation of arbitrary NPCs
-            p = Player()
-            character_creation(p, args)
+        def resize_terminal():
+            x, y = self.args.dimensions[0], self.args.dimensions[1]
+            if self.args.verbose > 0:
+                print("[*] Resizing the terminal to y:{},x:{}".format(y,x))
+            try:
+                sys.stdout.write("\x1b[8;{};{}t".format(y,x))
+            except Exception as e:
+                if self.args.debug: raise
+                if self.args.verbose > 0:
+                    print("[*] Terminal resize failed: {}".format(e[0]))
+
+        def color_init():
+            curses.start_color()
+            curses.use_default_colors()
+            curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
+            curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
+            curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLUE)
+            curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_BLUE)
+            curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_RED)
+
+        color_init()
+        curses.curs_set(0)
+        resize_terminal()
+
+    def __window_launcher(self, stdscreen, target, player):
+        # Should be the target for each windowed process
+        # using curses.wrapper()
+        self.__curses_init()
+        target(stdscreen, player, self)
+
+    def execute(self):
+        self.player = Player()
+        if self.args.create:
+            curses.wrapper(self.__window_launcher, MainMenu, self.player)
             sys.exit(0)
+        if self.args.debug:
+            print('\n[*] Paladin-Ire running in Debug mode')
+            print('[*] Spawning a player')
+            print ('[*] Pre-game checks complete')
+            console_prompt('Press any key for the main menu')
+            curses.wrapper(self.__window_launcher, MainMenu, self.player)
+            sys,exit(0)
 
-        if args.debug:
-            print("\n[*] Paladin-Ire Debug Run Initiated")
-            console_prompt()
-            print("[*] Spawning player")
-
-        p = Player()
-
-        if args.debug:
-            print("[*] Pre-game checks complete")
-            console_prompt('Press any key for the game menu')
-
-        # Enter the character creation menu
-        character_creation(p, args)
+if __name__ == "__main__":
+    try:
+        app = GameApp()
+        if app.args.debug:
+            print('[*] Executing...')
+        app.execute()
 
     except (KeyboardInterrupt, SystemExit):
-        if args.verbose > 0:
+        if app.args.verbose > 0:
             print('[!] Keyboard interrupt or system exit detected, quitting')
             sys.exit(1)
 
     except Exception as e:
-        if args is None: raise
-        if args.debug:
+        if app.args is None: raise
+        if app.args.debug:
             raise
             #pdb.post_mortem()
-        elif args.verbose:
+        elif app.args.verbose:
             print(e[0])
         else:
             raise
