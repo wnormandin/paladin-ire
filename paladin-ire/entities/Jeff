@@ -1,1 +1,0 @@
-{"name": "Jeff", "class": "Warrior", "attributes": {"health": 6, "attack": 6, "defense": 3, "focus": 3, "strength": 5, "wisdom": 1, "luck": 1}, "resists": {"fire": 0, "frost": 0, "death": 10, "detection": 0}, "meta": {"level": 1, "spells": false, "sneaks": false, "damage": 0}, "status": {"blind": 0, "paralyzed": 0, "invincible": 0, "fast": 0}}

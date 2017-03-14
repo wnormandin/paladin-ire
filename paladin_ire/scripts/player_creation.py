@@ -11,9 +11,10 @@
 import curses
 
 # package
-from util.menu import Menu, MenuItem, AttributeSelection, ClassSelection, OptionMenu, MapWindow
-from util.color import color_wrap, Color
-from player.player import Player
+from game.menu import Menu, MenuItem, AttributeSelection, ClassSelection, OptionMenu
+from game.core import MapWindow
+from game.color import color_wrap, Color
+from game.player import Player
 from .world_generation import MapGenerator
 
 class MainMenu(object):

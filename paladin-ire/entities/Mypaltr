@@ -1,1 +1,0 @@
-{"name": "Mypaltr", "class": "Warrior", "attributes": {"health": 4, "attack": 3, "defense": 1, "focus": 1, "strength": 2, "wisdom": 13, "luck": 1}, "resists": {"fire": 0, "frost": 0, "death": 10, "detection": 0}, "meta": {"level": 1, "spells": false, "sneaks": false, "damage": 0}, "status": {"blind": 0, "paralyzed": 0, "invincible": 0, "fast": 0}}

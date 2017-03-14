@@ -1,5 +1,6 @@
 import curses
 
+
 def main(stdscr):
     curses.start_color()
     curses.use_default_colors()
